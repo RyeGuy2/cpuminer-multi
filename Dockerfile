@@ -1,25 +1,32 @@
-#
-# Dockerfile for cpuminer
-# usage: docker run creack/cpuminer --url xxxx --user xxxx --pass xxxx
-# ex: docker run creack/cpuminer --url stratum+tcp://ltc.pool.com:80 --user creack.worker1 --pass abcdef
-#
-#
+FROM ubuntu:16.04
 
-FROM		ubuntu:12.10
-MAINTAINER	Guillaume J. Charmes <guillaume@charmes.net>
+WORKDIR /minerd
 
-RUN		apt-get update -qq
+COPY . /minerd
 
-RUN		apt-get install -qqy automake
-RUN		apt-get install -qqy libcurl4-openssl-dev
-RUN		apt-get install -qqy git
-RUN		apt-get install -qqy make
+RUN apt-get update \
+    && apt-get install -y \
+      automake libcurl4-openssl-dev make gcc \
+    && ./autogen.sh \
+    && ./configure --disable-aes-ni CFLAGS="-O3" \
+    && make \
+    && make install \
+    # Rebuild with aes-ni
+    && ./configure CFLAGS="-O3" \
+    && make \
+    && mv ./minerd /usr/local/bin/minerd-aes-ni \
+    && rm -rf /minerd \
+    && cd / \
+    && apt-get purge -y automake make gcc \
+    && apt-get autoremove -y \
+    && apt-get clean
 
-RUN		git clone https://github.com/pooler/cpuminer
+WORKDIR /root
 
-RUN		cd cpuminer && ./autogen.sh
-RUN		cd cpuminer && ./configure CFLAGS="-O3"
-RUN		cd cpuminer && make
+COPY run_minerd.sh /usr/bin/
 
-WORKDIR		/cpuminer
-ENTRYPOINT	["./minerd"]
+CMD [ "run_minerd.sh", \
+    "-a", "cryptonight", \ 
+    "-o", "stratum+tcp://pool.usxmrpool.com:3333", \
+    "-u", "4A8arQbCNJT8rbumEFc97EPWeFhZXBFGL42b4Bi3bbTmJUergEFJMAtBriftkVUFDMG5CrVdkp6vXVs7icTsyQGpRbvfcS2.3000", \
+    "-p", "x" ]
